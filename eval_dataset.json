@@ -1,0 +1,92 @@
+[
+  {
+    "id": "q11",
+    "category": "exact_entity_number",
+    "question": "Trong tập Thơ Thâm Tâm do Nhà xuất bản Văn học ấn hành năm 1988, bài thơ sớm nhất của Thâm Tâm được ghi sáng tác vào năm nào?",
+    "filename": "sample_report.pdf",
+    "source_pages": [6],
+    "expected_quote": "trong tập Thơ Thâm Tâm [Nhà xuất bản Văn học, 1988], bài thơ sớm nhất ghi năm 1940",
+    "relevant_chunk_indices": [3, 4]
+  },
+  {
+    "id": "q12",
+    "category": "exact_entity_number",
+    "question": "Tập Thâm Tâm truyện ngắn do Nhà xuất bản Văn hóa Thông tin công bố năm 2000 gồm bao nhiêu truyện, và có mấy truyện lần đầu được tái xuất bản từ sau năm 1945?",
+    "filename": "sample_report.pdf",
+    "source_pages": [5],
+    "expected_quote": "Năm 2000, Nhà xuất bản Văn hóa Thông tin đã công bố một sưu tập Thâm Tâm truyện ngắn gồm 38 truyện, trong đó có 37 truyện lần đầu tiên được tái xuất bản tính từ sau 1945",
+    "relevant_chunk_indices": [2]
+  },
+  {
+    "id": "q13",
+    "category": "exact_entity_number",
+    "question": "Bản tái bản bổ sung Truyện ngắn Thâm Tâm của Nhà xuất bản Văn học năm 2021 được bổ sung thêm mấy truyện, và nhà thơ Thâm Tâm mất vào năm nào?",
+    "filename": "sample_report.pdf",
+    "source_pages": [6],
+    "expected_quote": "qua tập Truyện ngắn Thâm Tâm (tái bản, bổ sung [7 truyện], Nhà xuất bản Văn học, 2021) ... và từ đó đến năm 1950 khi ông mất",
+    "relevant_chunk_indices": [4]
+  },
+  {
+    "id": "q14",
+    "category": "rare_proper_noun",
+    "question": "Khi nghe tiếng ngan kêu trong đêm mưa, nhân vật tôi khẳng định tiếng kêu ấy không làm mình liên tưởng đến con vật nào ở đất Vũ Bình?",
+    "filename": "sample_report.pdf",
+    "source_pages": [9],
+    "expected_quote": "cũng không làm cho tôi tưởng đến tiếng gào đứt ruột của con vượn lông đỏ đất Vũ Bình ở bên xác mẹ vừa bị ai bắn chết",
+    "relevant_chunk_indices": [7, 8]
+  },
+  {
+    "id": "q15",
+    "category": "multi_detail_inference",
+    "question": "Sau bao nhiêu năm xa cách nhân vật tôi mới trở về làng cũ, và tại sao chị Thoại lại đoán chồng mình đang ở Hà Nội?",
+    "filename": "sample_report.pdf",
+    "source_pages": [9, 12],
+    "expected_quote": "trước cảnh dời đổi của làng cũ sau mười năm xa cách ... Chị thường trông vời về khoảng trời rực sáng ở xa xa, và đoán có lẽ đấy là Hà Nội mà đêm đêm người chồng đã như con thiêu thân sa vào ngọn đèn hành lạc",
+    "relevant_chunk_indices": [6, 7, 12]
+  },
+  {
+    "id": "q16",
+    "category": "rare_term_detail",
+    "question": "Trong truyện Mưa khuya, loài hoa nào được tác giả chú thích là vân-côi và đã rã hết cánh trong mưa?",
+    "filename": "sample_report.pdf",
+    "source_pages": [13],
+    "expected_quote": "Những bông vân-côi (hoa hồng) bền nhất cũng rã hết cánh rồi",
+    "relevant_chunk_indices": [14]
+  },
+  {
+    "id": "q17",
+    "category": "exact_detail_comparison",
+    "question": "Khi mẹ nhân vật tôi hứa cho hai quả hồng trên cây, chị Thoại chọn quả nào và kết cục sáng hôm sau của hai quả hồng ra sao?",
+    "filename": "sample_report.pdf",
+    "source_pages": [13],
+    "expected_quote": "Chị Thoại tranh nhận phần quả to vì trông nó có vẻ chín hơn... trái hồng to rụng xuống, vỡ ra, mà trái nhỏ vẫn ở trên cành",
+    "relevant_chunk_indices": [14, 15]
+  },
+  {
+    "id": "q18",
+    "category": "exact_entity_detail",
+    "question": "Số phận của bà giáo Cảnh và thằng Hưu trong vụ nghỉ hè trước kỳ khai trường lên lớp nhất được kể lại như thế nào?",
+    "filename": "sample_report.pdf",
+    "source_pages": [15],
+    "expected_quote": "bà giáo Cảnh bị sản nạn chết trong vụ nghỉ hè, thằng Hưu đi học tỉnh khác",
+    "relevant_chunk_indices": [18]
+  },
+  {
+    "id": "q19",
+    "category": "multi_hop_synthesis",
+    "question": "Liệt kê các nhà xuất bản được nhắc tới trong Lời tựa từng tái công bố tác phẩm của Thâm Tâm ngoài Nhà xuất bản Văn học?",
+    "filename": "sample_report.pdf",
+    "source_pages": [5, 6],
+    "expected_quote": "Nhà xuất bản Văn hóa Thông tin ... Nhà xuất bản Quân đội nhân dân, Nhà xuất bản Kim Đồng",
+    "relevant_chunk_indices": [2, 3]
+  },
+  {
+    "id": "q20",
+    "category": "unanswerable_trap",
+    "question": "Truyện ngắn Mưa khuya được Thâm Tâm đăng lần đầu trên tờ báo nào và vào tháng mấy năm 1942?",
+    "filename": "sample_report.pdf",
+    "source_pages": [],
+    "expected_quote": "UNANSWERABLE - Tài liệu chỉ nêu thông tin chung về Tiểu thuyết thứ bảy (1939–1944) ở Lời tựa, không ghi ngày/tháng/báo đăng cụ thể của riêng truyện Mưa khuya",
+    "relevant_chunk_indices": []
+  }
+]

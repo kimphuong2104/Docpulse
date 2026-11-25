@@ -1,0 +1,38 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: docpulse_pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: docpulse
+      POSTGRES_PASSWORD: 123456789
+      POSTGRES_DB: docpulse_mvp
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-docpulse} -d ${POSTGRES_DB:-docpulse_mvp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: docpulse_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-docpulse}:${POSTGRES_PASSWORD:-docpulse_secret}@db:5432/${POSTGRES_DB:-docpulse_mvp}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
