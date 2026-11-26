@@ -1,12 +1,14 @@
 # File: test_parse.py
 from pathlib import Path
-from chunker import clean_markdown, split_markdown_into_chunks
-from document_parser import DoclingDocumentParser
+
+from app.chunking import clean_markdown, split_markdown_into_chunks
+from app.config import REPO_ROOT
+from app.parsing import DoclingDocumentParser
 
 
 def main() -> None:
-    sample_file = "sample_report.pdf"
-    output_dir = Path("parsed_output")
+    sample_file = REPO_ROOT / "sample_report.pdf"
+    output_dir = REPO_ROOT / "parsed_output"
     output_dir.mkdir(exist_ok=True)
 
     parser = DoclingDocumentParser(enable_ocr=False, high_accuracy_tables=True)

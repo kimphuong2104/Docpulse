@@ -11,7 +11,7 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-docpulse} -d ${POSTGRES_DB:-docpulse_mvp}"]
       interval: 5s
@@ -19,8 +19,9 @@ services:
       retries: 10
 
   api:
+    image: docpulse-api:latest
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: docpulse_api
     restart: unless-stopped
@@ -28,11 +29,42 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-docpulse}:${POSTGRES_PASSWORD:-docpulse_secret}@db:5432/${POSTGRES_DB:-docpulse_mvp}
+      UPLOAD_DIR: /data/uploads
     ports:
       - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./data/uploads:/data/uploads
     depends_on:
       db:
         condition: service_healthy
+
+  worker:
+    image: docpulse-api:latest
+    container_name: docpulse_worker
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-docpulse}:${POSTGRES_PASSWORD:-docpulse_secret}@db:5432/${POSTGRES_DB:-docpulse_mvp}
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./data/uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+    container_name: docpulse_web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8088}:80"
+    depends_on:
+      - api
 
 volumes:
   pgdata:

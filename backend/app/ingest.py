@@ -1,21 +1,21 @@
-# File: ingest.py
+import hashlib
 import json
 import os
+import re
+import time
 from pathlib import Path
+
 import httpx
-import psycopg
-from dotenv import load_dotenv
 
-from chunker import ChunkItem, clean_markdown, split_markdown_into_chunks
-from document_parser import DoclingDocumentParser
-
-load_dotenv()
-
-DATABASE_URL = os.environ["DATABASE_URL"]
-EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "gemini").lower()
-EMBEDDING_API_KEY = os.environ["EMBEDDING_API_KEY"]
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "gemini-embedding-001")
-EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "3072"))
+from app.chunking import ChunkItem, clean_markdown, split_markdown_into_chunks
+from app.config import (
+    EMBEDDING_API_KEY,
+    EMBEDDING_DIM,
+    EMBEDDING_MODEL,
+    EMBEDDING_PROVIDER,
+)
+from app.db import connect
+from app.parsing import DoclingDocumentParser
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
@@ -37,15 +37,34 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
             }
             for t in texts
         ]
-        with httpx.Client(timeout=30.0) as client:
-            resp = client.post(url, json={"requests": requests_payload})
-            resp.raise_for_status()
+        delay = 30.0
+        for attempt in range(8):
+            with httpx.Client(timeout=120.0) as client:
+                resp = client.post(url, json={"requests": requests_payload})
+            if resp.status_code in (429, 503) and attempt < 7:
+                wait = delay
+                match = re.search(r'retryDelay"\s*:\s*"(\d+)', resp.text)
+                if match:
+                    wait = max(wait, float(match.group(1)))
+                if wait > 600:
+                    raise RuntimeError(
+                        f"Embedding HTTP {resp.status_code}: hạn mức ngày đã hết, "
+                        f"cần chờ khoảng {wait / 3600:.1f} giờ. {resp.text[:240]}"
+                    )
+                print(f"[embed] HTTP {resp.status_code}, chờ {wait:.0f}s rồi thử lại", flush=True)
+                time.sleep(wait)
+                delay = min(delay * 2, 120.0)
+                continue
+            if resp.is_error:
+                raise RuntimeError(f"Embedding HTTP {resp.status_code}: {resp.text[:300]}")
             data = resp.json()
+            time.sleep(1.5)
             return [item["values"] for item in data["embeddings"]]
+        raise RuntimeError("Embedding batch failed.")
 
     # Mặc định theo chuẩn OpenAI-compatible embeddings endpoint (OpenAI / OpenRouter)
     base_url = os.getenv("EMBEDDING_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-    with httpx.Client(timeout=30.0) as client:
+    with httpx.Client(timeout=120.0) as client:
         resp = client.post(
             f"{base_url}/embeddings",
             headers={
@@ -125,6 +144,12 @@ def _ingest_result(
     }
 
 
+def ingest_plain_text(filename: str, text: str, namespace: str = "default") -> dict:
+    """Nạp bài đã là văn bản, cùng đường cắt chunk và embedding với file PDF."""
+    file_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return _store_document(filename, file_hash, namespace, text)
+
+
 def ingest_file(
     file_path: str,
     parser: DoclingDocumentParser,
@@ -132,18 +157,40 @@ def ingest_file(
     overlap_chars: int = 100,
     original_filename: str | None = None,
     namespace: str = "default",
+    on_stage=None,
 ) -> dict:
-    """
-    Parse -> Clean -> Chunk -> Embed -> Lưu vào PostgreSQL pgvector.
-    Trả về thông tin tài liệu, gồm trạng thái created hoặc duplicate.
-    """
+    """Parse -> Clean -> Chunk -> Embed -> Lưu vào PostgreSQL pgvector."""
+    if on_stage:
+        on_stage("parsing", 25)
     parsed = parser.parse(file_path)
     filename = original_filename or parsed.filename
-    namespace = namespace.strip() or "default"
+    if on_stage:
+        on_stage("indexing", 60)
+    return _store_document(
+        filename,
+        parsed.file_hash,
+        namespace,
+        parsed.markdown,
+        max_chars=max_chars,
+        overlap_chars=overlap_chars,
+        on_stage=on_stage,
+    )
 
-    with psycopg.connect(DATABASE_URL) as conn:
+
+def _store_document(
+    filename: str,
+    file_hash: str,
+    namespace: str,
+    markdown: str,
+    max_chars: int = 900,
+    overlap_chars: int = 100,
+    on_stage=None,
+) -> dict:
+
+    namespace = namespace.strip() or "default"
+    with connect() as conn:
         with conn.cursor() as cur:
-            cleaned_md = clean_markdown(parsed.markdown)
+            cleaned_md = clean_markdown(markdown)
             chunks: list[ChunkItem] = split_markdown_into_chunks(
                 cleaned_md,
                 max_chars=max_chars,
@@ -155,7 +202,7 @@ def ingest_file(
 
             cur.execute(
                 "SELECT id, filename, namespace FROM documents WHERE file_hash = %s",
-                (parsed.file_hash,),
+                (file_hash,),
             )
             existing = cur.fetchone()
             if existing:
@@ -172,7 +219,7 @@ def ingest_file(
                         document_id,
                         filename,
                         stored_namespace,
-                        parsed.file_hash,
+                        file_hash,
                         len(chunks),
                     )
                 cur.execute("DELETE FROM chunks WHERE document_id = %s", (document_id,))
@@ -183,11 +230,13 @@ def ingest_file(
                     VALUES (%s, %s, %s)
                     RETURNING id
                     """,
-                    (filename, parsed.file_hash, namespace),
+                    (filename, file_hash, namespace),
                 )
                 document_id = cur.fetchone()[0]
                 stored_namespace = namespace
 
+            if on_stage:
+                on_stage("indexing", 75)
             # 2. Tạo embedding theo từng batch (ví dụ 20 chunk/lần để tránh payload quá lớn)
             vectors: list[list[float]] = []
             batch_size = 20
@@ -232,7 +281,7 @@ def ingest_file(
             document_id,
             filename,
             stored_namespace,
-            parsed.file_hash,
+            file_hash,
             len(chunks),
         )
 
@@ -241,19 +290,39 @@ def ingest_pdf_file(
     pdf_path: str,
     original_filename: str | None = None,
     namespace: str = "default",
+    on_stage=None,
 ) -> dict:
     """Điểm vào dùng chung cho CLI và API. Parser Docling được giữ lại giữa các lần gọi."""
+    if on_stage:
+        on_stage("parsing", 15)
     return ingest_file(
         pdf_path,
         _get_parser(),
         original_filename=original_filename,
         namespace=namespace,
+        on_stage=on_stage,
     )
 
 
 if __name__ == "__main__":
     import sys
 
-    target_file = sys.argv[1] if len(sys.argv) > 1 else "sample_report.pdf"
-    result = ingest_pdf_file(target_file, original_filename=Path(target_file).name)
-    print(result)
+    namespace = "default"
+    args = sys.argv[1:]
+    if "--namespace" in args:
+        index = args.index("--namespace")
+        namespace = args[index + 1]
+        del args[index : index + 2]
+    targets = [Path(arg) for arg in args] or [Path("sample_report.pdf")]
+    pdfs: list[Path] = []
+    for target in targets:
+        if target.is_dir():
+            pdfs.extend(sorted(target.glob("*.pdf")))
+        else:
+            pdfs.append(target)
+    if not pdfs:
+        print("Không tìm thấy file PDF.")
+        sys.exit(1)
+    for pdf in pdfs:
+        result = ingest_pdf_file(str(pdf), original_filename=pdf.name, namespace=namespace)
+        print(result)

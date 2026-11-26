@@ -1,10 +1,5 @@
 # File: find_chunks.py
-import os
-import psycopg
-from dotenv import load_dotenv
-
-load_dotenv()
-DATABASE_URL = os.environ["DATABASE_URL"]
+from app.db import connect
 
 keywords = {
     "q01": ["38 truyện", "Lời tựa", "Tuấn Khoa"],
@@ -19,7 +14,7 @@ keywords = {
     "q10": ["lá chanh", "hương nhu"],
 }
 
-with psycopg.connect(DATABASE_URL) as conn:
+with connect() as conn:
     with conn.cursor() as cur:
         for qid, kws in keywords.items():
             matched = []
